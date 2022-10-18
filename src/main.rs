@@ -24,34 +24,25 @@ fn locate_lunar_executable() -> Result<String> {
     Ok(lunar)
 }
 
-fn get_agents() -> Result<Vec<PathBuf>> {
-    let agents = env::current_exe()?
-        .parent().context("executable has no parent directory")?
-        .read_dir()?
-        .filter_map(|r| r.ok())
-        .map(|e| e.path())
-        .filter(|p| p.extension() == Some(OsStr::new("jar")))
-        .collect();
-
-    Ok(agents)
-}
-
 fn main() -> Result<()> {
     let lunar_exe = match env::args().nth(1) {
         Some(path) => path,
         None => locate_lunar_executable().context("failed to locate the lunar executable, try passing it by argument")?
     };
 
-    let args: Vec<_> = get_agents()?
-        .iter()
-        .filter_map(|p| dunce::simplified(p).to_str())
-        .map(|p| json!({"value": p}))
-        .collect();
+    let current_exe = env::current_exe()?;
+    let dir = dunce::simplified(
+        current_exe.parent().context("executable has no parent directory")?
+    ).to_str().context("executable path contains invalid utf8")?;
 
     let mut debugger = ChromeRemoteDebugger::spawn_process_and_connect(&lunar_exe)?;
     debugger.send("Runtime.callFunctionOn", json!({
         "functionDeclaration": include_str!("inject.js"),
-        "arguments": args,
+        "arguments": [
+            {
+                "value": dir
+            }
+        ],
         "executionContextId": 1
     }))?;
 

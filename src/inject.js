@@ -1,6 +1,15 @@
-function _(...agents) {
-    const cp = require('child_process'), originalSpawn = cp.spawn;
+function _(appFolder) {
+    const fs = require('fs')
+    const path = require('path')
 
+    function jars(){
+        return fs.readdirSync(appFolder, { withFileTypes: true })
+            .filter(f => f.isFile() && f.name.endsWith('jar'))
+            .map(f => path.join(appFolder, f.name))
+    }
+
+
+    const cp = require('child_process'), originalSpawn = cp.spawn;
     // noinspection JSValidateTypes
     cp.spawn = function (cmd, args, opts){
         args = args.filter(e => e !== '-XX:+DisableAttachMechanism')
@@ -11,7 +20,7 @@ function _(...agents) {
 
         return originalSpawn(
             cmd,
-            [...agents.map(a => '-javaagent:' + a), ...args],
+            [...jars().map(a => '-javaagent:' + a), ...args],
             opts
         )
     }
