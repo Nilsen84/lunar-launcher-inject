@@ -12,16 +12,17 @@ use crate::chrome_debugger::ChromeRemoteDebugger;
 mod chrome_debugger;
 
 fn locate_lunar_executable() -> Result<String> {
-    if cfg!(not(windows)) {
-        bail!("automatically locating lunar is not supported on {}", env::consts::OS)
+    let exe = match env::consts::OS {
+        "windows" => env::var("localappdata")? + r"\Programs\lunarclient\Lunar Client.exe",
+        "macos" => "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
+        os => bail!("automatically locating lunar is not supported on {os}")
+    };
+
+    if !Path::new(&exe).exists() {
+        bail!("'{exe}' does not exist")
     }
 
-    let lunar = env::var("localappdata")? + r"\Programs\lunarclient\Lunar Client.exe";
-    if !Path::new(&lunar).exists() {
-        bail!("'{lunar}' does not exist")
-    }
-
-    Ok(lunar)
+    Ok(exe)
 }
 
 fn main() -> Result<()> {
