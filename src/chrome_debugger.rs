@@ -1,5 +1,6 @@
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::process::Command;
+use std::{thread, time};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{Message, WebSocket};
 use serde::Deserialize;
@@ -17,10 +18,10 @@ pub struct ChromeRemoteDebugger {
 }
 
 impl ChromeRemoteDebugger {
-    pub fn spawn_process_and_connect(prog: &str) -> Result<Self> {
+    pub fn spawn_process_and_connect(program: &str) -> Result<Self> {
         let port = free_port().context("failed to find a free tcp port")?;
-        Command::new(prog)
-            .arg(format!("--remote-debugging-port={port}"))
+        Command::new(program)
+            .arg(format!("--remote-debugging-port={}", port))
             .spawn()?;
 
         Self::connect(port)
@@ -33,9 +34,25 @@ impl ChromeRemoteDebugger {
             ws_url: String
         }
 
-        let targets: Vec<Target> = reqwest::blocking::get(
-            format!("http://localhost:{port}/json/list")
-        )?.json()?;
+        // create targets (if error, retry in 1 second) (max 10 tries)
+        let mut targets: Vec<Target> = Vec::new();
+        let mut retry = 0;
+        while targets.len() == 0 {
+            if retry > 10 {
+                panic!("Failed to get targets");
+            }
+            match reqwest::blocking::get(
+                format!("http://localhost:{port}/json/list", port = port)
+            ) {
+                Ok(res) => {
+                    targets = res.json()?;
+                },
+                Err(_) => {
+                    retry += 1;
+                    thread::sleep(time::Duration::from_secs(1));
+                }
+            }
+        }
 
         let selected = targets.first().context("no debugging targets found")?;
 
