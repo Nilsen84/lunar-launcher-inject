@@ -37,7 +37,7 @@ impl ChromeRemoteDebugger {
         // create targets (if error, retry in 1 second) (max 10 tries)
         let mut targets: Vec<Target> = Vec::new();
         let mut retry = 0;
-        while targets.len() == 0 {
+        while targets.is_empty() {
             if retry > 10 {
                 bail!("Failed to get targets");
             }
