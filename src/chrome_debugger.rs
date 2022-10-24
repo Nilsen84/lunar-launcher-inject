@@ -4,7 +4,7 @@ use std::{thread, time};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{Message, WebSocket};
 use serde::Deserialize;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde_json::json;
 
 fn free_port() -> Result<u16> {
