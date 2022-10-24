@@ -16,7 +16,7 @@ fn locate_lunar_executable() -> Result<String> {
         "windows" => env::var("localappdata")? + r"\Programs\lunarclient\Lunar Client.exe",
         "macos" => "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
         "linux" => "/usr/bin/lunarclient".into(),
-        os => bail!("automatically locating lunar is not supported on {os}")
+        os => bail!("automatically locating lunar is not supported on {}", os)
     };
 
     if !Path::new(&exe).exists() {
