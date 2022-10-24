@@ -42,7 +42,7 @@ impl ChromeRemoteDebugger {
                 bail!("Failed to get targets");
             }
             match reqwest::blocking::get(
-                format!("http://localhost:{port}/json/list", port = port)
+                format!("http://localhost:{}/json/list", port)
             ) {
                 Ok(res) => {
                     targets = res.json()?;
