@@ -39,7 +39,7 @@ impl ChromeRemoteDebugger {
         let mut retry = 0;
         while targets.len() == 0 {
             if retry > 10 {
-                panic!("Failed to get targets");
+                bail!("Failed to get targets");
             }
             match reqwest::blocking::get(
                 format!("http://localhost:{port}/json/list", port = port)
