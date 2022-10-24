@@ -1,8 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use anyhow::{bail, Context, Result};
 use serde_json::json;
@@ -15,11 +14,12 @@ fn locate_lunar_executable() -> Result<String> {
     let exe = match env::consts::OS {
         "windows" => env::var("localappdata")? + r"\Programs\lunarclient\Lunar Client.exe",
         "macos" => "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
-        os => bail!("automatically locating lunar is not supported on {os}")
+        "linux" => "/usr/bin/lunarclient".into(),
+        os => bail!("automatically locating lunar is not supported on {}", os)
     };
 
     if !Path::new(&exe).exists() {
-        bail!("'{exe}' does not exist")
+        bail!("'{}' does not exist", exe);
     }
 
     Ok(exe)
