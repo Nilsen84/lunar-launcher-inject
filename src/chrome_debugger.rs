@@ -38,7 +38,7 @@ impl ChromeRemoteDebugger {
         let mut targets: Vec<Target> = Vec::new();
         let mut retry = 0;
         while targets.is_empty() {
-            if retry > 10 {
+            if retry > 3 {
                 bail!("Failed to get targets");
             }
             match reqwest::blocking::get(
