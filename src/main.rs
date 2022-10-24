@@ -1,8 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use anyhow::{bail, Context, Result};
 use serde_json::json;
