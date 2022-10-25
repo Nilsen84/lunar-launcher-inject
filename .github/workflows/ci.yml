@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+
+jobs:
+  build:
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        os: ["windows-latest", "ubuntu-latest", "macos-latest"]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: RUSTFLAGS="-C strip=symbols" cargo build --release
+
+      - run: echo "ARTIFACT=$(find target/release/ -maxdepth 1 -type f -perm -u+x)" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ env.ARTIFACT }}
