@@ -24,6 +24,7 @@ jobs:
           GOOS=${os} GOARCH=amd64 go build -v -o lunar-launcher-inject${suffix} ..
         done
 
-    - run: |
-        gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
-        gh release upload ${GITHUB_REF_NAME} *
+    - name: Upload Artifacts
+      run: gh release upload ${GITHUB_REF_NAME} build/*
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
