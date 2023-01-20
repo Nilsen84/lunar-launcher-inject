@@ -49,7 +49,7 @@ func StartProcessAndConnectDebugger(program string) (*ChromeDebugger, *exec.Cmd,
 }
 
 func ConnectDebugger(port int) (*ChromeDebugger, error) {
-	url, err := getWebsocketUrl(port)
+	url, err := GetWebsocketDebuggerUrl(port)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func ConnectDebugger(port int) (*ChromeDebugger, error) {
 	}, nil
 }
 
-func getWebsocketUrl(port int) (string, error) {
+func GetWebsocketDebuggerUrl(port int) (string, error) {
 	var url string
 
 	err := retry.Do(

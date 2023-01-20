@@ -17,7 +17,7 @@ func GetLunarExecutable() (string, error) {
 	} else {
 		switch runtime.GOOS {
 		case "windows":
-			var home, err = os.UserHomeDir()
+			home, err := os.UserHomeDir()
 			if err != nil {
 				return "", err
 			}
@@ -38,54 +38,48 @@ func GetLunarExecutable() (string, error) {
 	return "", fmt.Errorf("'%s' does not exist", exe)
 }
 
-func GetExecutableDirectory() (string, error) {
-	ex, err := os.Executable()
+func Run() (err error) {
+	lunarExe, err := GetLunarExecutable()
 	if err != nil {
-		return "", err
+		return fmt.Errorf("%w\nfailed to locate the lunar launcher executable, try passing it by argument", err)
 	}
 
-	return filepath.Dir(ex), nil
-}
+	d, cmd, err := StartProcessAndConnectDebugger(lunarExe)
+	if cmd != nil {
+		defer func() {
+			if err != nil {
+				_ = cmd.Process.Kill()
+			}
+		}()
+	}
+	if err != nil {
+		return
+	}
+	defer d.Close()
 
-//go:embed inject.js
-var injectJs string
+	ex, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	return d.Send("Runtime.callFunctionOn", map[string]any{
+		"executionContextId":  1,
+		"functionDeclaration": injectJs,
+		"arguments": []any{
+			map[string]any{
+				"value": filepath.Dir(ex),
+			},
+		},
+	})
+}
 
 func main() {
 	log.SetFlags(0)
 
-	lunarExe, err := GetLunarExecutable()
-	if err != nil {
-		log.Println(err)
-		log.Fatalln("failed to locate the lunar launcher executable, try passing it by argument")
-	}
-
-	d, cmd, err := StartProcessAndConnectDebugger(lunarExe)
-	if err != nil {
-		if cmd != nil {
-			_ = cmd.Process.Kill()
-		}
-
-		log.Fatalln(err)
-	}
-	defer d.Close()
-	dir, err := GetExecutableDirectory()
-	if err != nil {
-		_ = cmd.Process.Kill()
-		log.Fatalln(err)
-	}
-
-	err = d.Send("Runtime.callFunctionOn", map[string]any{
-		"functionDeclaration": injectJs,
-		"arguments": []any{
-			map[string]any{
-				"value": dir,
-			},
-		},
-		"executionContextId": 1,
-	})
-
-	if err != nil {
-		_ = cmd.Process.Kill()
+	if err := Run(); err != nil {
 		log.Fatalln(err)
 	}
 }
+
+//go:embed inject.js
+var injectJs string
