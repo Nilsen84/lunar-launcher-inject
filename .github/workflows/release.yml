@@ -1,0 +1,29 @@
+name: Upload Release Artifacts
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+
+    - name: Build
+      run: |
+        mkdir build && cd build
+        for target in windows,-windows.exe darwin,-macos linux,-linux
+        do
+          IFS=, read -r os suffix <<< ${target}
+          GOOS=${os} GOARCH=amd64 go build -v -o lunar-launcher-inject${suffix} ..
+        done
+
+    - run: |
+        gh auth login --with-token <<< ${{ secrets.GITHUB_TOKEN }}
+        gh release upload ${GITHUB_REF_NAME} *
