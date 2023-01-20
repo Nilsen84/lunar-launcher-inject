@@ -68,17 +68,16 @@ func main() {
 		log.Fatalln(err)
 	}
 	defer d.Close()
-
 	dir, err := GetExecutableDirectory()
 	if err != nil {
 		_ = cmd.Process.Kill()
 		log.Fatalln(err)
 	}
 
-	err = d.Send("Runtime.callFunctionOn", map[string]interface{}{
+	err = d.Send("Runtime.callFunctionOn", map[string]any{
 		"functionDeclaration": injectJs,
-		"arguments": []interface{}{
-			map[string]string{
+		"arguments": []any{
+			map[string]any{
 				"value": dir,
 			},
 		},

@@ -21,8 +21,8 @@ func (d *ChromeDebugger) Close() error {
 	return d.conn.Close()
 }
 
-func (d *ChromeDebugger) Send(method string, params map[string]interface{}) error {
-	return d.conn.WriteJSON(map[string]interface{}{
+func (d *ChromeDebugger) Send(method string, params map[string]any) error {
+	return d.conn.WriteJSON(map[string]any{
 		"id":     1,
 		"method": method,
 		"params": params,
