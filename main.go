@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -22,7 +23,7 @@ func GetLunarExecutable() (string, error) {
 				return "", err
 			}
 			exe = home + `\AppData\Local\Programs\lunarclient\Lunar Client.exe`
-		case "macos":
+		case "darwin":
 			exe = "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client"
 		case "linux":
 			exe = "/usr/bin/lunarclient"
@@ -31,35 +32,36 @@ func GetLunarExecutable() (string, error) {
 		}
 	}
 
-	if _, err := os.Stat(exe); err == nil {
-		return exe, nil
+	if _, err := os.Stat(exe); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("'%s' does not exist", exe)
 	}
 
-	return "", fmt.Errorf("'%s' does not exist", exe)
+	return exe, nil
 }
 
 func Run() (err error) {
 	lunarExe, err := GetLunarExecutable()
 	if err != nil {
-		return fmt.Errorf("%w\nfailed to locate the lunar launcher executable, try passing it by argument", err)
+		if len(os.Args) < 2 {
+			return fmt.Errorf("failed to locate the lunar launcher executable, try passing it by argument: %w", err)
+		}
+		return err
 	}
 
 	d, cmd, err := StartProcessAndConnectDebugger(lunarExe)
-	if cmd != nil {
-		defer func() {
-			if err != nil {
-				_ = cmd.Process.Kill()
-			}
-		}()
-	}
+	defer func() {
+		if cmd != nil && err != nil {
+			_ = cmd.Process.Kill()
+		}
+	}()
 	if err != nil {
-		return
+		return err
 	}
 	defer d.Close()
 
 	ex, err := os.Executable()
 	if err != nil {
-		return
+		return err
 	}
 
 	return d.Send("Runtime.callFunctionOn", map[string]any{

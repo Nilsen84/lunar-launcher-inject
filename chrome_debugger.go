@@ -73,7 +73,6 @@ func GetWebsocketDebuggerUrl(port int) (string, error) {
 			if err != nil {
 				return err
 			}
-
 			defer r.Body.Close()
 
 			body, err := io.ReadAll(r.Body)
