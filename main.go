@@ -4,8 +4,10 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"github.com/phayes/freeport"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 )
@@ -48,14 +50,25 @@ func Run() (err error) {
 		return err
 	}
 
-	d, cmd, err := StartProcessAndConnectDebugger(lunarExe)
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return fmt.Errorf("failed to find free tcp port: %w", err)
+	}
+
+	cmd := exec.Command(lunarExe, fmt.Sprintf("--remote-debugging-port=%d", port))
+	cmd.Env = append(os.Environ(), "LC_LAUNCHER_DEV_TOOLS=true")
+	if err = cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start '%s': %w", lunarExe, err)
+	}
 	defer func() {
-		if cmd != nil && err != nil {
+		if err != nil {
 			_ = cmd.Process.Kill()
 		}
 	}()
+
+	d, err := ConnectDebugger(port)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect debugger: %w", err)
 	}
 	defer d.Close()
 
@@ -77,7 +90,6 @@ func Run() (err error) {
 
 func main() {
 	log.SetFlags(0)
-
 	if err := Run(); err != nil {
 		log.Fatalln(err)
 	}
