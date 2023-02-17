@@ -56,7 +56,6 @@ func Run() (err error) {
 	}
 
 	cmd := exec.Command(lunarExe, fmt.Sprintf("--remote-debugging-port=%d", port))
-	cmd.Env = append(os.Environ(), "LC_LAUNCHER_DEV_TOOLS=true")
 	if err = cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start '%s': %w", lunarExe, err)
 	}
