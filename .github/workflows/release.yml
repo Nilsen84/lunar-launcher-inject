@@ -15,8 +15,6 @@ jobs:
           - { runner: windows-latest, name: windows }
           - { runner: macos-latest, name: mac }
           - { runner: ubuntu-latest, name: linux }
-        include:
-          - exe: lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}${{ matrix.platform.name == 'windows' && '.exe' || '' }}
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
@@ -28,9 +26,14 @@ jobs:
         go-version: '1.20'
 
     - name: Build
-      run: GOARCH=amd64 go build -v -ldflags '-s -w' -o ${{ matrix.exe }}
+      id: build
+      run: |
+        artifact=lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}${{ matrix.platform.name == 'windows' && '.exe' || '' }}
+        echo "ARTIFACT=$artifact" >> $GITHUB_OUTPUT
+        
+        GOARCH=amd64 go build -v -ldflags '-s -w' -o $artifact
 
     - name: Upload Executable
-      run: gh release upload ${GITHUB_REF_NAME} ${{ matrix.exe }}
+      run: gh release upload ${GITHUB_REF_NAME} ${{ steps.build.outputs.ARTIFACT }}
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
