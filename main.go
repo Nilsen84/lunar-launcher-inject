@@ -78,7 +78,7 @@ func Run() (err error) {
 
 	return d.Send("Runtime.callFunctionOn", map[string]any{
 		"executionContextId":  1,
-		"functionDeclaration": injectJs,
+		"functionDeclaration": payload,
 		"arguments": []any{
 			map[string]any{
 				"value": filepath.Dir(ex),
@@ -94,5 +94,5 @@ func main() {
 	}
 }
 
-//go:embed inject.js
-var injectJs string
+//go:embed payload.js
+var payload string
