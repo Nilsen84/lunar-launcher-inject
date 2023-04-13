@@ -72,9 +72,9 @@ func GetWebsocketDebuggerUrl(port int) (string, error) {
 			url = targets[0].WebsocketUrl
 			return nil
 		},
-		retry.Attempts(3),
+		retry.Attempts(5),
 		retry.DelayType(retry.FixedDelay),
-		retry.Delay(350*time.Millisecond),
+		retry.Delay(500*time.Millisecond),
 		retry.LastErrorOnly(true),
 	)
 
