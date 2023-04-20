@@ -14,7 +14,7 @@ jobs:
         platform:
           - { runner: windows-latest, name: windows }
           - { runner: macos-latest, name: mac }
-          - { runner: ubuntu-latest, name: linux }
+          - { runner: ubuntu-20.04, name: linux }
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
