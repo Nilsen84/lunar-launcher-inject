@@ -1,6 +1,7 @@
 name: ci
 on:
-  push:
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -10,53 +11,23 @@ jobs:
     strategy:
       matrix:
         platform:
-          - name: windows
-            runner: windows-latest
-
-          - name: mac
-            runner: macos-latest
-
-          - name: linux
-            runner: ubuntu-latest
+          - { runner: windows-latest, name: windows }
+          - { runner: macos-latest, name: mac }
+          - { runner: ubuntu-20.04, name: linux }
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
       - uses: actions/checkout@v3
 
-      - run: RUSTFLAGS="-C strip=symbols" cargo build --release
+      - uses: dtolnay/rust-toolchain@nightly
 
-      - run: echo "ARTIFACT=$(find target/release/ -maxdepth 1 -type f -perm -u+x)" >> $GITHUB_ENV
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.platform.name }}
-          path: ${{ env.ARTIFACT }}
-
-  create_release:
-    name: Create Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-
-      - name: Variables
-        id: vars
-        run: echo "::set-output name=version::${GITHUB_REF_NAME#v}"
-
-      - shell: pwsh
+      - name: Build
         run: |
-          Get-ChildItem -Path "artifacts" -Recurse -Filter "lunar_launcher_inject*" |
-            Move-Item  -Destination { "artifacts/$($_.BaseName)-$($_.Directory.Name)-x64$($_.Extension)" }
+          artifact=lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}${{ matrix.platform.name == 'windows' && '.exe' || '' }}
+          echo "ARTIFACT=$artifact" >> $GITHUB_OUTPUT
+          cargo rustc --release -- -o $artifact
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: ${{ steps.vars.outputs.version }}
-          draft: true
-          files: |
-            ./artifacts/*
+      - name: Upload Executable
+        run: gh release upload $GITHUB_REF_NAME ${{ steps.build.outputs.ARTIFACT }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

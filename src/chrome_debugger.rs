@@ -1,80 +1,56 @@
-use std::thread;
-use std::net::{Ipv4Addr, TcpListener, TcpStream};
-use std::process::Command;
-use std::time::Duration;
-
-use anyhow::{bail, Context, Result};
+use std::error::Error;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{Ipv4Addr, TcpStream};
 use serde::Deserialize;
 use serde_json::json;
 use tungstenite::{Message, WebSocket};
-use tungstenite::stream::MaybeTlsStream;
 
-fn free_port() -> Result<u16> {
-    Ok(
-        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))?.local_addr()?.port()
-    )
+pub struct ChromeDebugger {
+    ws: WebSocket<TcpStream>
 }
 
-pub struct ChromeRemoteDebugger {
-    ws: WebSocket<MaybeTlsStream<TcpStream>>
-}
+impl ChromeDebugger {
+    pub fn connect(port: u16) -> Result<ChromeDebugger, Box<dyn Error>> {
+        let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))?;
+        let ws_url = get_websocket_url(&mut stream)?;
 
-impl ChromeRemoteDebugger {
-    pub fn spawn_process_and_connect(program: &str) -> Result<Self> {
-        let port = free_port().context("failed to find a free tcp port")?;
-        Command::new(program)
-            .arg(format!("--remote-debugging-port={}", port))
-            .spawn()?;
-
-        Self::connect(port)
-    }
-
-    pub fn connect(port: u16) -> Result<Self> {
-        #[derive(Deserialize)]
-        struct Target {
-            #[serde(rename = "webSocketDebuggerUrl")]
-            ws_url: String
-        }
-
-        let mut targets = Vec::<Target>::new();
-        let mut retry = 0;
-        while targets.is_empty() {
-            if retry > 3 {
-                bail!("Failed to get targets");
-            }
-            match reqwest::blocking::get(format!("http://localhost:{}/json/list", port)) {
-                Ok(resp) => {
-                    targets = resp.json()?;
-                }
-                Err(_) => {
-                    retry += 1;
-                    thread::sleep(Duration::from_secs(1));
-                }
-            }
-        }
-
-        let selected = &targets[0];
-
-        let (ws, _) = tungstenite::connect(
-            &selected.ws_url
-        )?;
-
-        Ok(Self{
-            ws
+        Ok(Self {
+            ws: tungstenite::client(ws_url, stream)?.0
         })
     }
 
-    pub fn send(&mut self, method: &str, params: serde_json::Value) -> Result<()> {
-        self.ws.write_message(
-            Message::Text(
-                json!({
-                    "id": 1,
-                    "method": method,
-                    "params": params
-                }).to_string()
-            )
-        )?;
+    pub fn send(&mut self, method: &str, params: serde_json::Value) -> Result<(), Box<dyn Error>> {
+        self.ws.write_message(Message::Text(
+            serde_json::to_string(&json!({
+                "id": 1,
+                "method": method,
+                "params": params
+            }))?
+        ))?;
+
+        if cfg!(debug_assertions) {
+            println!("{}", self.ws.read_message()?);
+        }
 
         Ok(())
     }
+}
+
+fn get_websocket_url(stream: &mut TcpStream) -> Result<String, Box<dyn Error>> {
+    stream.write_all(b"GET /json/list HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
+
+    let mut reader = BufReader::new(stream);
+    for line in reader.by_ref().lines() {
+        if line?.is_empty() { break }
+    }
+
+    #[derive(Deserialize)]
+    struct Target {
+        #[serde(rename = "webSocketDebuggerUrl")]
+        ws_url: String
+    }
+
+    let mut de = serde_json::Deserializer::from_reader(reader);
+    let mut targets: Vec<Target> = Vec::deserialize(&mut de)?;
+    Ok(targets.pop().ok_or("no debugging targets found")?.ws_url)
 }

@@ -1,15 +1,16 @@
 [package]
 name = "lunar_launcher_inject"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tungstenite = "0.17.3"
-reqwest = { version = "0.11.11", features = ["blocking", "json"]}
-serde = { version = "1.0.144", features = ["derive"] }
-serde_json = "1.0.85"
-anyhow = "1.0.65"
-ansi_term = "0.12.1"
-dunce = "1.0.3"
+serde = { version = "1.0.159", features = ["derive"] }
+serde_json = "1.0.95"
+tungstenite = "0.18.0"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "z"
