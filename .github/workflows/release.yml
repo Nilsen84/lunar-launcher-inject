@@ -1,4 +1,4 @@
-name: ci
+name: Release
 on:
   release:
     types: [created]
@@ -22,12 +22,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
 
       - name: Build
+        id: build
         run: |
-          artifact=lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}${{ matrix.platform.name == 'windows' && '.exe' || '' }}
-          echo "ARTIFACT=$artifact" >> $GITHUB_OUTPUT
-          cargo rustc --release -- -o $artifact
+          cargo build --release
+          
+          ext=${{ matrix.platform.name == 'windows' && '.exe' || '' }}
+          
+          mkdir artifacts
+          mv \
+            ./target/release/lunar_launcher_inject$ext \
+            ./artifacts/lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}$ext
 
       - name: Upload Executable
-        run: gh release upload $GITHUB_REF_NAME ${{ steps.build.outputs.ARTIFACT }}
+        run: gh release upload $GITHUB_REF_NAME ./artifacts/*
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
