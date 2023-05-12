@@ -40,40 +40,41 @@ fn wait_for_devtools_server(cmd: &mut Child) -> io::Result<()> {
     let reader = BufReader::new(cmd.stderr.take().unwrap());
     for line in reader.lines() {
         if line?.starts_with("DevTools listening on ") {
-            return Ok(());
+            return Ok(())
         }
     }
 
-    Err(io::Error::new(ErrorKind::UnexpectedEof, "'DevTools listening on ' was never printed"))?
+    Err(io::Error::new(ErrorKind::UnexpectedEof, "'DevTools listening on ' was never printed"))
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
     let lunar_exe = match env::args().nth(1) {
         Some(arg) => arg,
         _ => find_lunar_executable().map_err(|e|
-            format!("failed to locate lunars launcher, try passing the path to its executable by argument: {e}")
+            format!("failed to locate lunars launcher, try passing the path to its executable by argument: {}", e)
         )?
     };
 
     let port = free_port()?;
 
     let mut cp = Command::new(lunar_exe)
-        .arg(format!("--remote-debugging-port={port}"))
+        .arg(format!("--remote-debugging-port={}", port))
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("failed to start lunar: {e}"))?;
+        .map_err(|e| format!("failed to start lunar: {}", e))?;
 
     let res = try {
         wait_for_devtools_server(&mut cp)?;
+        // on windows the launcher gets stuck on a black screen if you inject code too early
+        // no idea why
+        sleep(Duration::from_millis(1000));
 
-        let mut debugger = ChromeDebugger::connect(port).map_err(|e| format!("failed to connect debugger: {e}"))?;
-        let mut path = env::current_exe()?;
-        path.pop();
+        let mut debugger = ChromeDebugger::connect(port).map_err(|e| format!("failed to connect debugger: {}", e))?;
 
         let payload = format!(
             "{}({})",
             include_str!("payload.js"),
-            serde_json::to_string(&path)?
+            serde_json::to_string(env::current_exe()?.parent().unwrap())?
         );
 
         debugger.send("Runtime.evaluate", json!({
@@ -90,7 +91,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("[error] {e}");
+        eprintln!("[error] {}", e);
         std::process::exit(1);
     }
 }
