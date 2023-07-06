@@ -21,7 +21,7 @@ fn free_port() -> io::Result<u16> {
 }
 
 fn find_lunar_executable() -> Result<String, String> {
-    let exe = match env::consts::OS {
+    let mut exe = match env::consts::OS {
         "windows" => env::var("localappdata").or(Err("%localappdata% not defined"))?
             + r"\Programs\lunarclient\Lunar Client.exe",
         "macos" => "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
@@ -30,11 +30,20 @@ fn find_lunar_executable() -> Result<String, String> {
     };
 
     if !Path::new(&exe).exists() {
-        Err(format!("'{}' does not exist", exe))?
+        if env::consts::OS == "windows" {
+            exe = env::var("localappdata").or(Err("%localappdata% not defined"))?
+                + r"\Programs\launcher\Lunar Client.exe"; 
+            if !Path::new(&exe).exists() {
+                Err(format!("'{}' does not exist", exe))?
+            }
+        } else {
+            Err(format!("'{}' does not exist", exe))?
+        }
     }
 
     Ok(exe)
 }
+
 
 fn wait_for_devtools_server(cmd: &mut Child) -> io::Result<()> {
     let reader = BufReader::new(cmd.stderr.take().unwrap());
