@@ -21,19 +21,24 @@ fn free_port() -> io::Result<u16> {
 }
 
 fn find_lunar_executable() -> Result<String, String> {
-    let exe = match env::consts::OS {
-        "windows" => env::var("localappdata").or(Err("%localappdata% not defined"))?
-            + r"\Programs\lunarclient\Lunar Client.exe",
-        "macos" => "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
-        "linux" => "/usr/bin/lunarclient".into(),
+    let paths: Vec<String> = match env::consts::OS {
+        "windows" => {
+            let localappdata = env::var("localappdata").or(Err("%localappdata% not defined"))?;
+
+            vec![
+                format!(r"{localappdata}\Programs\launcher\Lunar Client.exe"),
+                format!(r"{localappdata}\Programs\lunarclient\Lunar Client.exe")
+            ]
+        }
+        "macos" => vec!["/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into()],
+        "linux" => vec!["/usr/bin/lunarclient".into()],
         _ => Err("unsupported os")?
     };
-
-    if !Path::new(&exe).exists() {
-        Err(format!("'{}' does not exist", exe))?
-    }
-
-    Ok(exe)
+    
+    paths.iter()
+        .find(|p| Path::new(p).exists())
+        .ok_or(format!("searched in the following locations: [{}]", paths.join(", ")))
+        .map(|p| p.clone())
 }
 
 fn wait_for_devtools_server(cmd: &mut Child) -> io::Result<()> {
