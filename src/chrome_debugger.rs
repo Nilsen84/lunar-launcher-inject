@@ -20,7 +20,7 @@ impl ChromeDebugger {
     }
 
     pub fn send(&mut self, method: &str, params: serde_json::Value) -> Result<(), Box<dyn Error>> {
-        self.ws.write_message(Message::Text(
+        self.ws.write(Message::Text(
             serde_json::to_string(&json!({
                 "id": 1,
                 "method": method,
@@ -29,7 +29,7 @@ impl ChromeDebugger {
         ))?;
 
         if cfg!(debug_assertions) {
-            println!("{}", self.ws.read_message()?);
+            println!("{}", self.ws.read()?);
         }
 
         Ok(())
