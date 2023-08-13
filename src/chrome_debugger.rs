@@ -1,32 +1,50 @@
 use std::error::Error;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpStream};
+use std::str::FromStr;
 use serde::Deserialize;
 use serde_json::json;
 use tungstenite::{Message, WebSocket};
+use tungstenite::error::UrlError;
+use tungstenite::http::Uri;
 
 pub struct ChromeDebugger {
+    id: u32,
     ws: WebSocket<TcpStream>
 }
 
 impl ChromeDebugger {
-    pub fn connect(port: u16) -> Result<ChromeDebugger, Box<dyn Error>> {
+    pub fn connect_port(port: u16) -> Result<ChromeDebugger, Box<dyn Error>> {
         let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))?;
         let ws_url = get_websocket_url(&mut stream)?;
 
         Ok(Self {
+            id: 1,
             ws: tungstenite::client(ws_url, stream)?.0
         })
     }
 
+    pub fn connect_url(uri: impl AsRef<str>) -> Result<ChromeDebugger, Box<dyn Error>> {
+        let url = Uri::from_str(uri.as_ref())?;
+        let host = url.host().ok_or(tungstenite::Error::Url(UrlError::NoHostName))?;
+        let stream = TcpStream::connect((host, url.port_u16().unwrap_or(80)))?;
+
+        Ok(Self {
+            id: 1,
+            ws: tungstenite::client(&url, stream)?.0
+        })
+    }
+
     pub fn send(&mut self, method: &str, params: serde_json::Value) -> Result<(), Box<dyn Error>> {
-        self.ws.write(Message::Text(
+        self.ws.send(Message::Text(
             serde_json::to_string(&json!({
-                "id": 1,
+                "id": self.id,
                 "method": method,
                 "params": params
             }))?
         ))?;
+
+        self.id += 1;
 
         if cfg!(debug_assertions) {
             println!("{}", self.ws.read()?);
