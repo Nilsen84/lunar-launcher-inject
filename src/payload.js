@@ -23,6 +23,4 @@
             opts
         );
     }
-
-    require('electron').remote.getCurrentWindow().webContents.removeAllListeners('devtools-opened')
 })

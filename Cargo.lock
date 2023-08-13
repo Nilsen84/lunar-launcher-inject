@@ -150,7 +150,7 @@ dependencies = [
 
 [[package]]
 name = "lunar_launcher_inject"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "serde",
  "serde_json",

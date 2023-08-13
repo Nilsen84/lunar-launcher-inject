@@ -1,13 +1,13 @@
 #![feature(try_blocks)]
+#![allow(dead_code)]
 
-use std::{env, io};
+use std::{env, io, thread};
 use std::error::Error;
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::net::{Ipv4Addr, TcpListener};
-use std::path::Path;
+use std::path::{Path};
 use std::process::{Child, Command, Stdio};
 use std::string::String;
-use std::thread::sleep;
 use std::time::Duration;
 
 use serde_json::json;
@@ -30,26 +30,31 @@ fn find_lunar_executable() -> Result<String, String> {
                 format!(r"{localappdata}\Programs\lunarclient\Lunar Client.exe")
             ]
         }
-        "macos" => vec!["/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into()],
+        "macos" => vec![
+            "/Applications/Lunar Client.app/Contents/MacOS/Lunar Client".into(),
+            format!(
+                "{}/Applications/Lunar Client.app/Contents/MacOS/Lunar Client",
+                env::var("HOME").or(Err("$HOME not defined"))?
+            )
+        ],
         "linux" => vec!["/usr/bin/lunarclient".into()],
         _ => Err("unsupported os")?
     };
-    
+
     paths.iter()
         .find(|p| Path::new(p).exists())
         .ok_or(format!("searched in the following locations: [{}]", paths.join(", ")))
         .map(|p| p.clone())
 }
 
-fn wait_for_devtools_server(cmd: &mut Child) -> io::Result<()> {
-    let reader = BufReader::new(cmd.stderr.take().unwrap());
+fn wait_for_websocket_url(child: &mut Child) -> io::Result<String> {
+    let reader = BufReader::new(child.stderr.take().unwrap());
     for line in reader.lines() {
-        if line?.starts_with("DevTools listening on ") {
-            return Ok(())
+        if let Some(url) = line?.strip_prefix("Debugger listening on ") {
+            return Ok(url.into())
         }
     }
-
-    Err(io::Error::new(ErrorKind::UnexpectedEof, "'DevTools listening on ' was never printed"))
+    Err(io::Error::new(ErrorKind::UnexpectedEof, "'Debugger listening on ' was never printed"))
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
@@ -62,19 +67,22 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let port = free_port()?;
 
-    let mut cp = Command::new(lunar_exe)
-        .arg(format!("--remote-debugging-port={}", port))
+    let mut cp = Command::new(&lunar_exe)
+        .arg(format!("--inspect={}", port))
+        .stdin(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to start lunar: {}", e))?;
 
     let res = try {
-        wait_for_devtools_server(&mut cp)?;
-        // on windows the launcher gets stuck on a black screen if you inject code too early
-        // no idea why
-        sleep(Duration::from_millis(1000));
+        let url = wait_for_websocket_url(&mut cp)?;
 
-        let mut debugger = ChromeDebugger::connect(port).map_err(|e| format!("failed to connect debugger: {}", e))?;
+        println!("[LLI] Connecting to {}", url);
+        let mut debugger = ChromeDebugger::connect_url(url)
+            .map_err(|e| format!("failed to connect debugger: {}", e))?;
+
+        // otherwise you get "ReferenceError: require is not defined"
+        thread::sleep(Duration::from_millis(1000));
 
         let payload = format!(
             "{}({})",
@@ -83,7 +91,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         );
 
         debugger.send("Runtime.evaluate", json!({
-            "expression": payload
+            "expression": payload,
+            "includeCommandLineAPI": true
         }))?;
     };
 
