@@ -5,35 +5,48 @@ on:
 
 jobs:
   build:
+    name: Build ${{ matrix.platform.name }}-${{ matrix.platform.arch }}
+    permissions:
+      contents: write
     defaults:
       run:
         shell: bash
     strategy:
+      fail-fast: false
       matrix:
         platform:
-          - { runner: windows-latest, name: windows }
-          - { runner: macos-latest, name: mac }
-          - { runner: ubuntu-20.04, name: linux }
+          - { runner: windows-latest, name: windows, arch: x86_64 }
+          - { runner: windows-11-arm, name: windows, arch: arm64 }
+          - { runner: macos-15-intel, name: mac, arch: x86_64 }
+          - { runner: macos-latest, name: mac, arch: arm64 }
+          - { runner: ubuntu-latest, name: linux, arch: x86_64 }
+          - { runner: ubuntu-24.04-arm, name: linux, arch: arm64 }
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7.0.1
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        id: build
+        env:
+          PLATFORM: ${{ matrix.platform.name }}
+          ARCH: ${{ matrix.platform.arch }}
+          RELEASE_NAME: ${{ github.event.release.name }}
         run: |
-          cargo build --release
-          
-          ext=${{ matrix.platform.name == 'windows' && '.exe' || '' }}
-          
+          cargo +stable build --release --locked
+
+          ext=""
+          if [[ "$PLATFORM" == "windows" ]]; then
+            ext=".exe"
+          fi
+
           mkdir artifacts
           mv \
-            ./target/release/lunar_launcher_inject$ext \
-            ./artifacts/lunar-launcher-inject-${{ matrix.platform.name }}-${{ github.event.release.name }}$ext
+            "./target/release/lunar_launcher_inject$ext" \
+            "./artifacts/lunar-launcher-inject-$PLATFORM-$ARCH-$RELEASE_NAME$ext"
 
       - name: Upload Executable
-        run: gh release upload $GITHUB_REF_NAME ./artifacts/*
+        run: gh release upload "$GITHUB_REF_NAME" ./artifacts/*
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
